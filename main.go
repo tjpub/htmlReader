@@ -67,6 +67,11 @@ func main() {
 
 	fmt.Println("structs ", datas)
 
+	if len(datas) == 0 {
+		fmt.Println("no data! ")
+		return
+	}
+
 	sort.Sort(datas)
 
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
