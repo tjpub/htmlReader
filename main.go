@@ -15,9 +15,11 @@ import (
 )
 
 type meret struct {
-	name   string
-	width  float32
-	height float32
+	name    string
+	width   float32
+	height  float32
+	xrepeat int64
+	yrepeat int64
 }
 
 type meretek []meret
@@ -85,16 +87,22 @@ func writeToFile(datas meretek, dir string) {
 	defer f.Close()
 
 	w := bufio.NewWriter(f)
-	w.WriteString("Könyvtár: ")
+	//w.WriteString("Könyvtár: ")
 	check(err)
-	w.WriteString(dir)
-	w.WriteString("\n\n")
+	//w.WriteString(dir)
+	//w.WriteString("\n\n")
 	for _, data := range datas {
 		w.WriteString(data.name)
 		w.WriteString("\t")
-		w.WriteString(fmt.Sprintf("%.3f", data.width))
+		w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.width), ".", ",", -1))
 		w.WriteString("\t")
-		w.WriteString(fmt.Sprintf("%.3f", data.height))
+		w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.height), ".", ",", -1))
+
+		w.WriteString("\t")
+		w.WriteString(fmt.Sprintf("%d", data.xrepeat))
+		w.WriteString("\t")
+		w.WriteString(fmt.Sprintf("%d", data.yrepeat))
+
 		_, err = w.WriteString("\n")
 		check(err)
 	}
@@ -175,7 +183,37 @@ func processFile(fileName string, content string) meretek {
 			check(err)
 			data.height = float32(value)
 			fmt.Println("Height ", t.Data)
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+
+			z.Next()
+			z.Next()
+			z.Next()
+
+			t = z.Token()
+			val, err := strconv.ParseInt(t.Data, 10, 32)
+			check(err)
+			data.xrepeat = val
+			fmt.Println("xrepeat  ", t.Data)
+
+			z.Next()
+			z.Next()
+			z.Next()
+
+			t = z.Token()
+			val, err = strconv.ParseInt(t.Data, 10, 32)
+			check(err)
+			data.yrepeat = val
+			fmt.Println("yrepeat  ", t.Data)
+
 			fmt.Println("")
+
 			datas = append(datas, data)
 		default:
 			t := z.Token()
