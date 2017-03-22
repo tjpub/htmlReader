@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -42,20 +41,43 @@ func (s meretek) Less(i, j int) bool {
 }
 
 func main() {
-	fmt.Println(" -- listing html files -- ")
+	wd, _ := os.Getwd()
+	argsWithoutProg := os.Args[1:]
+	path := wd
+	if len(argsWithoutProg) > 0 {
+		path = wd + "\\" + argsWithoutProg[0]
+	}
 
-	files, err := ioutil.ReadDir("./")
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		fmt.Printf("Könyvtár nem létezik! %s", path)
+		os.Exit(0)
+	}
+
+	//ha van skip file, feldolgozzuk
+	skipFile := wd + "\\skip.txt"
+	var skip []string
+	if _, err := os.Stat(skipFile); err == nil {
+		fmt.Printf(" skip fájl feldolgozása %s -- \n", skipFile)
+		skip = processSkips(skipFile)
+
+		fmt.Println("skip: -->", skip)
+	}
+
+	fmt.Printf(" -- listing html files from %s -- \n", path)
+
+	files, err := ioutil.ReadDir(path)
 	check(err)
 
 	var fileNames []string
 	for _, f := range files {
 		fileName := f.Name()
 		if strings.HasSuffix(fileName, ".htm") {
-			fileNames = append(fileNames, fileName)
+			fileNames = append(fileNames, path+"\\"+fileName)
 		}
 	}
 
-	fmt.Println("-->", fileNames)
+	fmt.Println("files: -->", fileNames)
 
 	var datas meretek
 
@@ -76,13 +98,37 @@ func main() {
 
 	sort.Sort(datas)
 
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	check(err)
-	writeToFile(datas, dir)
+	writeToFile(datas, path, skip)
 }
 
-func writeToFile(datas meretek, dir string) {
-	f, err := os.Create("__file__")
+func processSkips(path string) []string {
+	var skips []string
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		skips = append(skips, scanner.Text())
+	}
+
+	return skips
+}
+
+func stringInSlice(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func writeToFile(datas meretek, dir string, skip []string) {
+	f, err := os.Create(dir + "\\__file__")
 	check(err)
 	defer f.Close()
 
@@ -92,19 +138,20 @@ func writeToFile(datas meretek, dir string) {
 	//w.WriteString(dir)
 	//w.WriteString("\n\n")
 	for _, data := range datas {
-		w.WriteString(data.name)
-		w.WriteString("\t")
-		w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.width), ".", ",", -1))
-		w.WriteString("\t")
-		w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.height), ".", ",", -1))
+		if !stringInSlice(data.name, skip) {
+			w.WriteString(data.name)
+			w.WriteString("\t")
+			w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.width), ".", ",", -1))
+			w.WriteString("\t")
+			w.WriteString(strings.Replace(fmt.Sprintf("%.3f", data.height), ".", ",", -1))
 
-		w.WriteString("\t")
-		w.WriteString(fmt.Sprintf("%d", data.xrepeat))
-		w.WriteString("\t")
-		w.WriteString(fmt.Sprintf("%d", data.yrepeat))
+			w.WriteString("\t")
+			w.WriteString(fmt.Sprintf("%d", data.xrepeat))
+			w.WriteString("\t")
+			w.WriteString(fmt.Sprintf("%d", data.yrepeat))
 
-		_, err = w.WriteString("\n")
-		check(err)
+			w.WriteString("\n")
+		}
 	}
 
 	w.Flush()
@@ -183,30 +230,34 @@ func processFile(fileName string, content string) meretek {
 			check(err)
 			data.height = float32(value)
 			fmt.Println("Height ", t.Data)
-			z.Next()
-			z.Next()
-			z.Next()
-			z.Next()
-			z.Next()
-			z.Next()
-			z.Next()
-			z.Next()
+			i := 0
+			for i < 3 {
+				z.Next()
+				t = z.Token()
+				d := strings.TrimSpace(t.Data)
+				//fmt.Println("got", d)
+				if d == "td" || d == "" {
+					//fmt.Println("rossz t ", d)
+				} else {
+					i++
+					//fmt.Println("jó t ", d)
+				}
+			}
 
-			z.Next()
-			z.Next()
-			z.Next()
-
-			t = z.Token()
 			val, err := strconv.ParseInt(t.Data, 10, 32)
 			check(err)
 			data.xrepeat = val
 			fmt.Println("xrepeat  ", t.Data)
 
-			z.Next()
-			z.Next()
-			z.Next()
-
-			t = z.Token()
+			for i < 1 {
+				z.Next()
+				t = z.Token()
+				d := strings.TrimSpace(t.Data)
+				if d == "td" || d == "" {
+				} else {
+					i++
+				}
+			}
 			val, err = strconv.ParseInt(t.Data, 10, 32)
 			check(err)
 			data.yrepeat = val
