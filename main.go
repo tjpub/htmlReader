@@ -249,6 +249,7 @@ func processFile(fileName string, content string) meretek {
 			data.xrepeat = val
 			fmt.Println("xrepeat  ", t.Data)
 
+			i = 0
 			for i < 1 {
 				z.Next()
 				t = z.Token()
