@@ -64,10 +64,10 @@ func main() {
 		fmt.Println("skip: -->", skip)
 	}
 
-	fmt.Printf(" -- listing html files from %s -- \n", path)
-
 	files, err := ioutil.ReadDir(path)
 	check(err)
+
+	fmt.Printf(" -- listing htm files from %s -- \n", path)
 
 	var fileNames []string
 	for _, f := range files {
@@ -77,15 +77,34 @@ func main() {
 		}
 	}
 
-	fmt.Println("files: -->", fileNames)
+	fmt.Println("htm files: -->", fileNames)
 
 	var datas meretek
 
 	for _, file := range fileNames {
+		fmt.Println("reading htm --> ", file)
+		dat, err := ioutil.ReadFile(file)
+		check(err)
+		m := processHTMFile(file, string(dat))
+		datas = append(datas, m...)
+	}
+
+	fmt.Printf(" -- listing html files from %s -- \n", path)
+
+	fileNames = nil
+	for _, f := range files {
+		fileName := f.Name()
+		if strings.HasSuffix(fileName, ".html") {
+			fileNames = append(fileNames, path+"\\"+fileName)
+		}
+	}
+
+	fmt.Println("html files: -->", fileNames)
+	for _, file := range fileNames {
 		fmt.Println("reading html --> ", file)
 		dat, err := ioutil.ReadFile(file)
 		check(err)
-		m := processFile(file, string(dat))
+		m := processHTMLFile(file, string(dat))
 		datas = append(datas, m...)
 	}
 
@@ -157,7 +176,103 @@ func writeToFile(datas meretek, dir string, skip []string) {
 	w.Flush()
 }
 
-func processFile(fileName string, content string) meretek {
+func processHTMLFile(fileName string, content string) meretek {
+	fmt.Println("processing html--> ", fileName)
+
+	var datas meretek
+
+	f := strings.NewReader(content)
+	z := html.NewTokenizer(f)
+	joTable := false
+	for {
+		tt := z.Next()
+		switch {
+		case tt == html.ErrorToken:
+			// End of the document, we're done
+			fmt.Println("processing done --> ", fileName)
+			fmt.Printf("file has %d elements ", len(datas))
+			fmt.Println("")
+			return datas
+
+		case tt == html.EndTagToken:
+			continue
+		case tt == html.StartTagToken:
+			t := z.Token()
+			if !joTable {
+				isTable := t.Data == "table"
+				if !isTable {
+					continue
+				}
+				for _, a := range t.Attr {
+					if a.Val == "1" {
+						//<TABLE border="1">
+						joTable = true
+						break
+					}
+				}
+
+				if !joTable {
+					continue
+				}
+				joTable = true
+			}
+
+			for {
+				z.Next()
+				t = z.Token()
+				isTd := t.Data == "td"
+				if isTd {
+					break
+				}
+			}
+
+			//<TR><TD>Feba_takarofolia_kt02_Black_1.lenl2t.tif<TD>79530.195<TD>Black<TD>355.018<TD>224.017<TD>Advanced01<TD>No<TD>No
+			z.Next()
+			t = z.Token()
+
+			data := meret{}
+			data.name = t.Data
+			data.xrepeat = 1
+			data.yrepeat = 1
+			fmt.Println("Name ", t.Data)
+
+			z.Next()
+			z.Next()
+			//area kihagyása
+
+			z.Next()
+			z.Next()
+			//separation kihagyása
+			z.Next()
+			z.Next()
+			t = z.Token()
+			value, err := strconv.ParseFloat(t.Data, 32)
+			check(err)
+			data.width = float32(value)
+			fmt.Println("dim x: ", t.Data)
+			z.Next()
+			z.Next()
+			t = z.Token()
+			value, err = strconv.ParseFloat(t.Data, 32)
+			check(err)
+			data.height = float32(value)
+			fmt.Println("dim y: ", t.Data)
+
+			datas = append(datas, data)
+
+			//utolsó 3 kihagyása
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+			z.Next()
+		default:
+		}
+	}
+}
+
+func processHTMFile(fileName string, content string) meretek {
 	fmt.Println("processing --> ", fileName)
 
 	var datas meretek
